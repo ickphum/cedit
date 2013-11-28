@@ -30,14 +30,8 @@
                 <bitmap>image/dialogue.png</bitmap>
             </object>
         </object>
-        <object class="wxRichTextCtrl" name="text_rtc">
-            <size>100,100</size>
-            <font>
-                <size>10</size>
-                <family>swiss</family>
-                <face>Tahoma</face>
-            </font>
-            <style>wxWANTS_CHARS</style>
+        <object class="wxTextCtrl" name="text_txt">
+            <style>wxTE_MULTILINE</style>
         </object>
     </object>
 </resource>

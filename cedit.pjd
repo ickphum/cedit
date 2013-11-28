@@ -132,7 +132,65 @@
         <long name="locked">0</long>
         <string name="template-name">""</string>
         <bool name="dirty">1</bool>
-        <long name="makefile-last-written">0</long>
+        <long name="makefile-last-written">-8519680</long>
+        <string name="Compiler name">""</string>
+        <string name="Build mode">"Debug"</string>
+        <string name="Unicode mode">"Unicode"</string>
+        <string name="Shared mode">"Static"</string>
+        <string name="Modularity">"Modular"</string>
+        <string name="GUI mode">"GUI"</string>
+        <string name="Toolkit">"wxGTK+2"</string>
+        <string name="Processor type">"Default"</string>
+        <string name="Runtime linking">"Dynamic"</string>
+        <string name="Use exceptions">"Yes"</string>
+        <string name="Use ODBC">"No"</string>
+        <string name="Use XRC">"Yes"</string>
+        <string name="Use OpenGL">"No"</string>
+        <string name="Use wxMediaCtrl">"No"</string>
+        <string name="Use wxRichTextCtrl">"Yes"</string>
+        <string name="Use wxHTML">"Yes"</string>
+        <string name="Use wxPropertyGrid">"Yes"</string>
+        <string name="Use wxAUI">"Yes"</string>
+        <string name="Use wxSTC">"Yes"</string>
+        <string name="Use wxRegEx">"builtin"</string>
+        <string name="Use wxRibbonControl">"Yes"</string>
+        <string name="Executable name">"%EXECUTABLE%"</string>
+        <string name="Program arguments">""</string>
+        <string name="Working path">"%AUTO%"</string>
+        <string name="Output path">"%AUTO%"</string>
+        <string name="Objects path">"%AUTO%"</string>
+        <string name="Project makefile">"%AUTO%"</string>
+        <string name="wxWidgets version">"%WXVERSION%"</string>
+        <string name="wxWidgets makefile">"%AUTO%"</string>
+        <string name="wxWidgets location">"%AUTO%"</string>
+        <string name="wxWidgets build path">"%AUTO%"</string>
+        <string name="wxWidgets build command">"%AUTO%"</string>
+        <string name="wxWidgets clean command">"%AUTO%"</string>
+        <string name="CFG">""</string>
+        <string name="Compiler location">"%AUTO%"</string>
+        <string name="Compiler bin path">"%AUTO%"</string>
+        <string name="Compiler include path">"%AUTO%"</string>
+        <string name="Compiler lib path">"%AUTO%"</string>
+        <string name="PATH variable">"%AUTO%"</string>
+        <string name="C++ command">"%AUTO%"</string>
+        <string name="C command">"%AUTO%"</string>
+        <string name="Linker command">"%AUTO%"</string>
+        <string name="Resource compiler">"%AUTO%"</string>
+        <string name="Make command">"%AUTO%"</string>
+        <string name="Preprocessor flags">"%AUTO%"</string>
+        <string name="Optimizations">"%AUTO%"</string>
+        <string name="Warnings">"%AUTO%"</string>
+        <string name="Debug flags">"%AUTO%"</string>
+        <string name="Extra compile flags">"%AUTO%"</string>
+        <string name="Libraries">"%AUTO%"</string>
+        <string name="Library path">"%AUTO%"</string>
+        <string name="Linker flags">"%AUTO%"</string>
+        <string name="Include path">"%AUTO%"</string>
+        <string name="Resource flags">"%AUTO%"</string>
+        <string name="Resource path">"%AUTO%"</string>
+        <string name="Extra dependencies">"%AUTO%"</string>
+        <bool name="Suppress source rules">0</bool>
+        <bool name="Enable makefile generation">1</bool>
       </document>
     </document>
   </data>
@@ -312,6 +370,7 @@
             <bool name="proxy-wxSHAPED">0</bool>
             <bool name="proxy-wxADJUST_MINSIZE">0</bool>
             <bool name="proxy-wxFIXED_MINSIZE">0</bool>
+            <bool name="proxy-wxRESERVE_SPACE_EVEN_IF_HIDDEN">0</bool>
             <string name="proxy-Custom arguments">""</string>
             <string name="proxy-Custom ctor arguments">""</string>
             <string name="proxy-Event sources">""</string>
@@ -467,7 +526,7 @@
             </document>
           </document>
           <document>
-            <string name="title">"wxRichTextCtrl: text_rtc"</string>
+            <string name="title">"wxTextCtrl: text_txt"</string>
             <string name="type">"dialog-control-document"</string>
             <string name="filename">""</string>
             <string name="icon-name">"textctrl"</string>
@@ -475,23 +534,24 @@
             <long name="owns-file">1</long>
             <long name="title-mode">0</long>
             <long name="locked">0</long>
-            <string name="proxy-type">"wbRichTextCtrlProxy"</string>
-            <string name="proxy-Id name">"text_rtc"</string>
+            <string name="proxy-type">"wbTextCtrlProxy"</string>
+            <string name="proxy-Id name">"text_txt"</string>
             <long name="proxy-Id value">10002</long>
             <string name="proxy-Name">""</string>
-            <string name="proxy-Class">"wxRichTextCtrl"</string>
-            <string name="proxy-Base class">"wxRichTextCtrl"</string>
+            <string name="proxy-Class">"wxTextCtrl"</string>
+            <string name="proxy-Base class">"wxTextCtrl"</string>
             <bool name="proxy-External implementation">1</bool>
             <bool name="proxy-Separate files">0</bool>
             <string name="proxy-Implementation filename">""</string>
             <string name="proxy-Header filename">""</string>
             <string name="proxy-Member variable name">""</string>
             <string name="proxy-Initial value">""</string>
+            <long name="proxy-Max length">0</long>
             <string name="proxy-Help text">""</string>
             <string name="proxy-Tooltip text">""</string>
             <string name="proxy-Background colour">""</string>
             <string name="proxy-Foreground colour">""</string>
-            <string name="proxy-Font">"10, wxSWISS, wxNORMAL, wxNORMAL, false, Tahoma"</string>
+            <string name="proxy-Font">""</string>
             <bool name="proxy-Hidden">0</bool>
             <bool name="proxy-Enabled">1</bool>
             <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
@@ -502,7 +562,22 @@
             <string name="proxy-Data class implementation filename">""</string>
             <string name="proxy-Data class header filename">""</string>
             <string name="proxy-Data class manager window">""</string>
+            <bool name="proxy-wxTE_MULTILINE">1</bool>
+            <bool name="proxy-wxTE_PROCESS_ENTER">0</bool>
+            <bool name="proxy-wxTE_PROCESS_TAB">0</bool>
+            <bool name="proxy-wxTE_PASSWORD">0</bool>
             <bool name="proxy-wxTE_READONLY">0</bool>
+            <bool name="proxy-wxTE_RICH">0</bool>
+            <bool name="proxy-wxTE_RICH2">0</bool>
+            <bool name="proxy-wxTE_AUTO_URL">0</bool>
+            <bool name="proxy-wxTE_NOHIDESEL">0</bool>
+            <bool name="proxy-wxTE_LEFT">0</bool>
+            <bool name="proxy-wxTE_CENTRE">0</bool>
+            <bool name="proxy-wxTE_RIGHT">0</bool>
+            <bool name="proxy-wxHSCROLL">0</bool>
+            <bool name="proxy-wxTE_CHARWRAP">0</bool>
+            <bool name="proxy-wxTE_WORDWRAP">0</bool>
+            <bool name="proxy-wxTE_CAPITALIZE">0</bool>
             <bool name="proxy-wxNO_BORDER">0</bool>
             <bool name="proxy-wxSIMPLE_BORDER">0</bool>
             <bool name="proxy-wxDOUBLE_BORDER">0</bool>
@@ -510,15 +585,14 @@
             <bool name="proxy-wxSUNKEN_BORDER">0</bool>
             <bool name="proxy-wxRAISED_BORDER">0</bool>
             <bool name="proxy-wxSTATIC_BORDER">0</bool>
-            <bool name="proxy-wxWANTS_CHARS">1</bool>
+            <bool name="proxy-wxWANTS_CHARS">0</bool>
             <bool name="proxy-wxNO_FULL_REPAINT_ON_RESIZE">0</bool>
             <bool name="proxy-wxFULL_REPAINT_ON_RESIZE">0</bool>
-            <bool name="proxy-wxALWAYS_SHOW_SB">0</bool>
             <string name="proxy-Custom styles">""</string>
             <long name="proxy-X">-1</long>
             <long name="proxy-Y">-1</long>
-            <long name="proxy-Width">100</long>
-            <long name="proxy-Height">100</long>
+            <long name="proxy-Width">-1</long>
+            <long name="proxy-Height">-1</long>
             <string name="proxy-AlignH">"Centre"</string>
             <string name="proxy-AlignV">"Centre"</string>
             <long name="proxy-Stretch factor">0</long>
@@ -530,9 +604,9 @@
             <bool name="proxy-wxSHAPED">0</bool>
             <bool name="proxy-wxADJUST_MINSIZE">0</bool>
             <bool name="proxy-wxFIXED_MINSIZE">0</bool>
+            <bool name="proxy-wxRESERVE_SPACE_EVEN_IF_HIDDEN">0</bool>
             <string name="proxy-Custom arguments">""</string>
             <string name="proxy-Custom ctor arguments">""</string>
-            <string name="proxy-Event sources">""</string>
           </document>
         </document>
       </document>

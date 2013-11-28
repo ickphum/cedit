@@ -131,10 +131,13 @@ use File::Slurp qw(read_file write_file);
 use Wx::XRC;
 use Digest::SHA qw(sha1_hex);
 use Crypt::CBC;
+use YAML::XS qw(Dump Load);
 
-__PACKAGE__->mk_accessors( qw(frame xrc filename key saved_checksum control current_dir cipher) );
+__PACKAGE__->mk_accessors( qw(frame xrc filename key saved_checksum control current_dir cipher 
+    default_style dialogue_style dialogue_line) 
+    );
 
-sub new { # {{{1
+sub new { # {{{2
     my( $class, $option ) = @_;
     my $self = $class->SUPER::new();
 
@@ -153,7 +156,7 @@ sub new { # {{{1
     Wx::Event::EVT_MENU($self->frame, wxID_SAVE, \&save_file);
     Wx::Event::EVT_MENU($self->frame, wxID_ZOOM_IN, sub { $self->change_font_size(2); });
     Wx::Event::EVT_MENU($self->frame, wxID_ZOOM_OUT, sub { $self->change_font_size(-2); });
-    Wx::Event::EVT_MENU($self->frame, wxID_HELP, sub { $self->apply_dialogue_style; });
+    Wx::Event::EVT_MENU($self->frame, wxID_HELP, sub { $self->toggle_dialogue_style; });
 
     Wx::Event::EVT_CLOSE($self->frame, sub {
         my ($frame, $event) = @_;
@@ -192,6 +195,14 @@ sub new { # {{{1
     $self->current_dir($option->{bin_dir});
     $self->saved_checksum( sha1_hex('') );
 
+    my $dialogue_style = Wx::TextAttr->new(wxBLACK, Wx::Colour->new('#dddddd'));
+    $dialogue_style->SetLeftIndent(100);
+    $self->dialogue_style($dialogue_style);
+    my $default_style = Wx::TextAttr->new(Wx::Colour->new('#3c3c3c'), wxWHITE);
+    $default_style->SetLeftIndent(0);
+    $self->default_style($default_style);
+    $self->dialogue_line({});
+
     if ($option->{file}) {
         open_file($self->frame, undef, $option->{file});
     }
@@ -207,7 +218,7 @@ sub new_file { #{{{2
     my $app = wxTheApp;
     return unless $app->check_for_changes;
 
-    $app->control->{text_rtc}->Clear;
+    $app->control->{text_txt}->Clear;
     $app->saved_checksum( sha1_hex('') );
     $app->{filename} = undef;
     $app->{key} = undef;
@@ -249,12 +260,13 @@ sub save_file { #{{{2
 
     my ($filename, $key) = ($app->filename, $app->key);
 
-    my $edit_text = $app->control->{text_rtc}->GetValue;
+    my $edit_text = $app->control->{text_txt}->GetValue;
     my $checksum = sha1_hex($edit_text);
     $app->saved_checksum($checksum);
 
     # save the checksum so we can identify wrong keys
-    my $file_text = $checksum . $app->cipher->encrypt($edit_text);
+    my $dialogue_line_yaml = Dump($app->dialogue_line);
+    my $file_text = $checksum . pack('S', length $dialogue_line_yaml) . $dialogue_line_yaml . $app->cipher->encrypt($edit_text);
 
     write_file($filename, \$file_text);
 
@@ -290,6 +302,10 @@ sub open_file { #{{{2
 
     my $file_checksum = substr($file_text, 0, $checksum_length, '');
 
+    my $yaml_length = unpack('S', substr($file_text, 0, 2, ''));
+    my $yaml = substr($file_text, 0, $yaml_length, '');
+    $app->dialogue_line( Load($yaml) );
+
     my $edit_text = $app->cipher->decrypt($file_text);
     my $edit_checksum = sha1_hex($edit_text);
 
@@ -310,7 +326,11 @@ EOT
         $edit_text .= "\n";
     }
 
-    $app->control->{text_rtc}->SetValue( $edit_text );
+    $app->control->{text_txt}->SetValue( $edit_text );
+
+    for my $line (keys %{ $app->dialogue_line }) {
+        $app->set_dialogue_style($line);
+    }
 
     # set once open is successful
     $app->saved_checksum($edit_checksum);
@@ -324,34 +344,58 @@ EOT
 sub change_font_size { #{{{2
     my ($self, $increment) = @_;
 
-    my $text_rtc = $self->control->{text_rtc};
+    my $text_txt = $self->control->{text_txt};
 
-    my $basic_style = $text_rtc->GetBasicStyle;
-    my $font = $basic_style->GetFont;
+    my $font = $text_txt->GetFont;
     my $size = $font->GetPointSize;
     $font->SetPointSize($size + $increment);
-    $text_rtc->SetFont($font);
+    $text_txt->SetFont($font);
 
     return;
 }
 
 ################################################################################
-sub apply_dialogue_style { #{{{2
-    my ($self) = @_;
+sub toggle_dialogue_style { #{{{2
+    my ($self, $line_nbr) = @_;
 
-    my $text_rtc = $self->control->{text_rtc};
+    my $text_txt = $self->control->{text_txt};
 
-    my $pos = $text_rtc->GetCaretPosition;
-    my ($column, $line) = $text_rtc->PositionToXY($pos);
-    $log->info("current pos = $pos, at $line,$column");
-    my $length = $text_rtc->GetLineLength($line);
-    my $start = $text_rtc->XYToPosition(1,$line);
-    my $end = $text_rtc->XYToPosition($length - 1,$line);
+    unless (defined $line_nbr) {
+        my $pos = $text_txt->GetInsertionPoint;
+        (undef, $line_nbr) = $text_txt->PositionToXY($pos);
+        $log->info("current pos = $pos, line $line_nbr");
+    }
 
-    my $style = Wx::TextAttr->new();
-    $style->SetLeftIndent(10);
-#    $style->SetFontStyle(wxTEXT_ATTR_FONT_ITALIC);
-    $text_rtc->SetStyleEx($start, $end, $style);
+    my $length = $text_txt->GetLineLength($line_nbr);
+    my $start = $text_txt->XYToPosition(0,$line_nbr);
+    my $end = $text_txt->XYToPosition($length,$line_nbr);
+
+    my $style;
+    if (exists $self->dialogue_line->{ $line_nbr } ) {
+        $log->info("clear style");
+        $style = $self->default_style;
+        delete $self->dialogue_line->{ $line_nbr };
+    }
+    else {
+        $style = $self->dialogue_style;
+        $self->dialogue_line->{ $line_nbr } = 1;
+    }
+    $text_txt->SetStyle($start, $end, $style);
+
+    return;
+}
+
+################################################################################
+sub set_dialogue_style { #{{{2
+    my ($self, $line_nbr) = @_;
+
+    my $text_txt = $self->control->{text_txt};
+
+    my $length = $text_txt->GetLineLength($line_nbr);
+    my $start = $text_txt->XYToPosition(0,$line_nbr);
+    my $end = $text_txt->XYToPosition($length,$line_nbr);
+
+    $text_txt->SetStyle($start, $end, $self->dialogue_style);
 
     return;
 }
@@ -360,7 +404,7 @@ sub apply_dialogue_style { #{{{2
 sub check_for_changes { #{{{2
     my ($self) = @_;
 
-    my $current_text = $self->control->{text_rtc}->GetValue;
+    my $current_text = $self->control->{text_txt}->GetValue;
     my $checksum = sha1_hex($current_text);
 
     $log->debug("check_for_changes; now $checksum, saved " . $self->saved_checksum);
