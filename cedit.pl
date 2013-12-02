@@ -143,9 +143,9 @@ sub new { # {{{2
 
     $self->xrc( Wx::XmlResource->new() );
     $self->xrc->InitAllHandlers;
-    my $custom_xrc_handler = CeditXRCHandler->new ;
-    $custom_xrc_handler->AddStyle('wxWANTS_CHARS', wxWANTS_CHARS);
-    $self->xrc->AddHandler($custom_xrc_handler);
+#    my $custom_xrc_handler = CeditXRCHandler->new ;
+#    $custom_xrc_handler->AddStyle('wxWANTS_CHARS', wxWANTS_CHARS);
+#    $self->xrc->AddHandler($custom_xrc_handler);
 
     $self->xrc->Load('main.xrc');
 
@@ -157,6 +157,17 @@ sub new { # {{{2
     Wx::Event::EVT_MENU($self->frame, wxID_ZOOM_IN, sub { $self->change_font_size(2); });
     Wx::Event::EVT_MENU($self->frame, wxID_ZOOM_OUT, sub { $self->change_font_size(-2); });
     Wx::Event::EVT_MENU($self->frame, wxID_HELP, sub { $self->toggle_dialogue_style; });
+    Wx::Event::EVT_MENU($self->frame, wxID_DOWN, sub { $self->shift_dialogue_styles(1); });
+    Wx::Event::EVT_MENU($self->frame, wxID_UP, sub { $self->shift_dialogue_styles(-1); });
+    Wx::Event::EVT_MENU($self->frame, wxID_REFRESH, 
+        sub {
+
+            # fake a font size change to refresh the styles
+            $self->change_font_size(1);
+            $self->change_font_size(-1);
+        });
+
+    $self->frame->SetAcceleratorTable( Wx::AcceleratorTable->new ( [ wxACCEL_CTRL, ord('S'), wxID_SAVE ], ) );
 
     Wx::Event::EVT_CLOSE($self->frame, sub {
         my ($frame, $event) = @_;
@@ -198,7 +209,7 @@ sub new { # {{{2
     my $dialogue_style = Wx::TextAttr->new(wxBLACK, Wx::Colour->new('#dddddd'));
     $dialogue_style->SetLeftIndent(100);
     $self->dialogue_style($dialogue_style);
-    my $default_style = Wx::TextAttr->new(Wx::Colour->new('#3c3c3c'), wxWHITE);
+    my $default_style = Wx::TextAttr->new($self->control->{text_txt}->GetForegroundColour, wxWHITE);
     $default_style->SetLeftIndent(0);
     $self->default_style($default_style);
     $self->dialogue_line({});
@@ -260,13 +271,25 @@ sub save_file { #{{{2
 
     my ($filename, $key) = ($app->filename, $app->key);
 
-    my $edit_text = $app->control->{text_txt}->GetValue;
+    my $text_txt = $app->control->{text_txt};
+    my $edit_text = $text_txt->GetValue;
     my $checksum = sha1_hex($edit_text);
     $app->saved_checksum($checksum);
 
+    my ($width, $height) = $frame->GetSizeWH;
+    my ($left, $top) = $frame->GetPositionXY;
+
+    my $yaml = Dump({
+        dialogue_line => $app->dialogue_line,
+        font_size => $text_txt->GetFont->GetPointSize,
+        left => $left,
+        top => $top,
+        width => $width,
+        height => $height,
+    });
+
     # save the checksum so we can identify wrong keys
-    my $dialogue_line_yaml = Dump($app->dialogue_line);
-    my $file_text = $checksum . pack('S', length $dialogue_line_yaml) . $dialogue_line_yaml . $app->cipher->encrypt($edit_text);
+    my $file_text = $checksum . pack('S', length $yaml) . $yaml . $app->cipher->encrypt($edit_text);
 
     write_file($filename, \$file_text);
 
@@ -290,7 +313,7 @@ sub open_file { #{{{2
         $app->current_dir($file_dialog->GetDirectory);
     }
 
-    return unless my $key = Wx::GetPasswordFromUser("Choose key", "Key Entry", "", $frame);
+    return unless my $key = Wx::GetPasswordFromUser("Enter key", "Key Entry", "", $frame);
     $app->cipher( Crypt::CBC->new( -key => $key, -cipher => 'Blowfish') );
 
     $log->debug("open from $filename");
@@ -302,9 +325,16 @@ sub open_file { #{{{2
 
     my $file_checksum = substr($file_text, 0, $checksum_length, '');
 
+    # remove and unpack the yaml chunk
     my $yaml_length = unpack('S', substr($file_text, 0, 2, ''));
     my $yaml = substr($file_text, 0, $yaml_length, '');
-    $app->dialogue_line( Load($yaml) );
+    my $property = Load($yaml) ;
+
+    # apply the properties
+    $app->dialogue_line( $property->{dialogue_line} );
+    $app->change_font_size(0, $property->{font_size});
+    $frame->SetSize($property->{width}, $property->{height});
+    $frame->Move([ $property->{left}, $property->{top} ]);
 
     my $edit_text = $app->cipher->decrypt($file_text);
     my $edit_checksum = sha1_hex($edit_text);
@@ -328,9 +358,7 @@ EOT
 
     $app->control->{text_txt}->SetValue( $edit_text );
 
-    for my $line (keys %{ $app->dialogue_line }) {
-        $app->set_dialogue_style($line);
-    }
+    $app->refresh_dialogue_styles;
 
     # set once open is successful
     $app->saved_checksum($edit_checksum);
@@ -342,14 +370,16 @@ EOT
 
 ################################################################################
 sub change_font_size { #{{{2
-    my ($self, $increment) = @_;
+    my ($self, $increment, $size) = @_;
 
     my $text_txt = $self->control->{text_txt};
 
     my $font = $text_txt->GetFont;
-    my $size = $font->GetPointSize;
-    $font->SetPointSize($size + $increment);
+    $size ||= $font->GetPointSize + $increment;
+    $font->SetPointSize($size);
     $text_txt->SetFont($font);
+
+    $self->refresh_dialogue_styles;
 
     return;
 }
@@ -386,16 +416,40 @@ sub toggle_dialogue_style { #{{{2
 }
 
 ################################################################################
-sub set_dialogue_style { #{{{2
-    my ($self, $line_nbr) = @_;
+sub shift_dialogue_styles { #{{{2
+    my ($self, $increment) = @_;
 
     my $text_txt = $self->control->{text_txt};
 
-    my $length = $text_txt->GetLineLength($line_nbr);
-    my $start = $text_txt->XYToPosition(0,$line_nbr);
-    my $end = $text_txt->XYToPosition($length,$line_nbr);
+    my $pos = $text_txt->GetInsertionPoint;
+    (undef, my $current_line) = $text_txt->PositionToXY($pos);
+    $log->info("current_line $current_line");
 
-    $text_txt->SetStyle($start, $end, $self->dialogue_style);
+    my @dialogue_lines = sort { $increment > 0 ? $b <=> $a : $a <=> $b } keys %{ $self->dialogue_line };
+
+    for my $line_nbr (@dialogue_lines) {
+        next unless $line_nbr >= $current_line;
+        $self->toggle_dialogue_style($line_nbr);
+        $self->toggle_dialogue_style($line_nbr + $increment);
+    }
+
+    return;
+}
+
+################################################################################
+# Note that this won't take off any styles, so it only works after a load or a font
+# size change.
+sub refresh_dialogue_styles { #{{{2
+    my ($self) = @_;
+
+    my $text_txt = $self->control->{text_txt};
+
+    for my $line_nbr (keys %{ $self->dialogue_line }) {
+        my $length = $text_txt->GetLineLength($line_nbr);
+        my $start = $text_txt->XYToPosition(0,$line_nbr);
+        my $end = $text_txt->XYToPosition($length,$line_nbr);
+        $text_txt->SetStyle($start, $end, $self->dialogue_style);
+    }
 
     return;
 }

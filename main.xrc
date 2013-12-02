@@ -29,6 +29,15 @@
             <object class="tool" name="wxID_HELP">
                 <bitmap>image/dialogue.png</bitmap>
             </object>
+            <object class="tool" name="wxID_DOWN">
+                <bitmap>image/dialogue_down.png</bitmap>
+            </object>
+            <object class="tool" name="wxID_UP">
+                <bitmap>image/dialogue_up.png</bitmap>
+            </object>
+            <object class="tool" name="wxID_REFRESH">
+                <bitmap>image/dialogue_refresh.png</bitmap>
+            </object>
         </object>
         <object class="wxTextCtrl" name="text_txt">
             <style>wxTE_MULTILINE</style>
