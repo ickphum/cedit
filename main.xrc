@@ -16,6 +16,9 @@
             <object class="tool" name="wxID_SAVE">
                 <bitmap>image/save.png</bitmap>
             </object>
+            <object class="tool" name="wxID_SAVEAS">
+                <bitmap>image/copy_to_html.png</bitmap>
+            </object>
             <object class="separator">
             </object>
             <object class="tool" name="wxID_ZOOM_IN">
@@ -37,9 +40,6 @@
             </object>
             <object class="tool" name="wxID_REFRESH">
                 <bitmap>image/dialogue_refresh.png</bitmap>
-            </object>
-            <object class="tool" name="wxID_SAVEAS">
-                <bitmap>image/copy_to_html.png</bitmap>
             </object>
         </object>
         <object class="wxTextCtrl" name="text_txt">

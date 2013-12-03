@@ -123,12 +123,13 @@ package CeditApp;
 use strict;
 use warnings;
 
-use Wx qw[:everything];
+use Wx qw[:everything wxTheClipboard];
 use base qw(Wx::App Class::Accessor::Fast);
 use Data::Dumper;
 use File::Basename;
 use File::Slurp qw(read_file write_file);
 use Wx::XRC;
+use Wx::DND;
 use Digest::SHA qw(sha1_hex);
 use Crypt::CBC;
 use YAML::XS qw(Dump Load);
@@ -159,6 +160,7 @@ sub new { # {{{2
     Wx::Event::EVT_MENU($self->frame, wxID_HELP, sub { $self->toggle_dialogue_style; });
     Wx::Event::EVT_MENU($self->frame, wxID_DOWN, sub { $self->shift_dialogue_styles(1); });
     Wx::Event::EVT_MENU($self->frame, wxID_UP, sub { $self->shift_dialogue_styles(-1); });
+    Wx::Event::EVT_MENU($self->frame, wxID_SAVEAS, \&copy_to_html);
     Wx::Event::EVT_MENU($self->frame, wxID_REFRESH, 
         sub {
 
@@ -465,6 +467,61 @@ sub check_for_changes { #{{{2
     return $checksum eq $self->saved_checksum
         ? 1
         : wxYES == Wx::MessageBox("Ok to lose changes?", "Lose Changes", wxYES_NO, $self->frame);
+}
+
+################################################################################
+sub copy_to_html { #{{{2
+    my ($frame) = @_;
+
+    my $app = wxTheApp;
+    my $text_txt = $app->control->{text_txt};
+    (my $title = $text_txt->GetLineText(0)) =~ s/\s*\z//;
+
+    my $html = <<"EOT";
+<html>
+<head>
+<meta content="text/html; charset=ISO-8859-1"
+http-equiv="content-type">
+<title>$title</title>
+</head>
+<body>
+EOT
+
+    my $table_start = <<"EOT";
+<table style="margin-left: 40px;" border="1" cellpadding="0" cellspacing="0">
+<tbody>
+<tr>
+<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </td>
+<td style="background-color: #dddddd; font-weight: bold;"><b>
+EOT
+
+    my $table_end = "</b></td> </tr> </tbody> </table>";
+
+    my $number_lines = $text_txt->GetNumberOfLines;
+    for my $line_nbr (0 .. $number_lines - 1) {
+        my $line = $text_txt->GetLineText($line_nbr);
+        $html .= $app->dialogue_line->{$line_nbr}
+            ? $table_start . $line . $table_end . "\n"
+            : $line . "<br>\n";
+    }
+
+    $html .= "</body></html>\n";
+
+    my $file_dialog = Wx::FileDialog->new($frame, "Save HTML to...", $app->current_dir, "$title.html", 'HTML files|*.html|All files|*', wxFD_SAVE);
+    return unless $file_dialog->ShowModal == wxID_OK;
+    my $filename = $file_dialog->GetPath;
+    if (-f $filename) {
+        return unless wxYES == Wx::MessageBox("File '$filename' exists; ok to overwrite?", "Confirm Overwrite", wxYES_NO, $frame);
+    }
+
+    write_file($filename, \$html);
+
+#    if (wxTheClipboard->Open()) {
+#        wxTheClipboard->SetData( Wx::TextDataObject->new($html) );
+#        wxTheClipboard->Close();
+#    }
+
+    return;
 }
 
 ################################################################################
