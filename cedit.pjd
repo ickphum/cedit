@@ -586,6 +586,27 @@
               <string name="proxy-Help text">""</string>
               <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
             </document>
+            <document>
+              <string name="title">"Tool: wxID_SAVEAS"</string>
+              <string name="type">"dialog-control-document"</string>
+              <string name="filename">""</string>
+              <string name="icon-name">"menuitem"</string>
+              <long name="is-transient">0</long>
+              <long name="owns-file">1</long>
+              <long name="title-mode">0</long>
+              <long name="locked">0</long>
+              <string name="proxy-type">"wbToolBarButtonProxy"</string>
+              <string name="proxy-Id name">"wxID_SAVEAS"</string>
+              <long name="proxy-Id value">5004</long>
+              <string name="proxy-Bitmap">"image/copy_to_html.png"</string>
+              <string name="proxy-Bitmap (disabled)">""</string>
+              <string name="proxy-Label">""</string>
+              <string name="proxy-Kind">"Normal"</string>
+              <bool name="proxy-Enabled">1</bool>
+              <string name="proxy-Tooltip">""</string>
+              <string name="proxy-Help text">""</string>
+              <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
+            </document>
           </document>
           <document>
             <string name="title">"wxTextCtrl: text_txt"</string>
