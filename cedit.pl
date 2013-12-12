@@ -169,7 +169,10 @@ sub new { # {{{2
             $self->change_font_size(-1);
         });
 
-    $self->frame->SetAcceleratorTable( Wx::AcceleratorTable->new ( [ wxACCEL_CTRL, ord('S'), wxID_SAVE ], ) );
+    $self->frame->SetAcceleratorTable( Wx::AcceleratorTable->new (
+        [ wxACCEL_CTRL, ord('S'), wxID_SAVE ],
+        [ wxACCEL_CTRL, ord('D'), wxID_HELP ],
+    ));
 
     Wx::Event::EVT_CLOSE($self->frame, sub {
         my ($frame, $event) = @_;

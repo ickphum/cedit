@@ -18,28 +18,35 @@
             </object>
             <object class="tool" name="wxID_SAVEAS">
                 <bitmap>image/copy_to_html.png</bitmap>
+                <tooltip>Copy HTML to clipboard</tooltip>
             </object>
             <object class="separator">
             </object>
             <object class="tool" name="wxID_ZOOM_IN">
                 <bitmap>image/increase_font.png</bitmap>
+                <tooltip>Increase font size</tooltip>
             </object>
             <object class="tool" name="wxID_ZOOM_OUT">
                 <bitmap>image/decrease_font.png</bitmap>
+                <tooltip>Decrease font size</tooltip>
             </object>
             <object class="separator">
             </object>
             <object class="tool" name="wxID_HELP">
                 <bitmap>image/dialogue.png</bitmap>
+                <tooltip>Toggle this line as dialogue </tooltip>
             </object>
             <object class="tool" name="wxID_DOWN">
                 <bitmap>image/dialogue_down.png</bitmap>
+                <tooltip>Move all dialogue lines from this point down</tooltip>
             </object>
             <object class="tool" name="wxID_UP">
                 <bitmap>image/dialogue_up.png</bitmap>
+                <tooltip>Move all dialogue lines from this point up</tooltip>
             </object>
             <object class="tool" name="wxID_REFRESH">
                 <bitmap>image/dialogue_refresh.png</bitmap>
+                <tooltip>Refresh dialogue lines</tooltip>
             </object>
         </object>
         <object class="wxTextCtrl" name="text_txt">

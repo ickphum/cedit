@@ -370,6 +370,7 @@
             <bool name="proxy-wxSHAPED">0</bool>
             <bool name="proxy-wxADJUST_MINSIZE">0</bool>
             <bool name="proxy-wxFIXED_MINSIZE">0</bool>
+            <bool name="proxy-wxRESERVE_SPACE_EVEN_IF_HIDDEN">0</bool>
             <string name="proxy-Custom arguments">""</string>
             <string name="proxy-Custom ctor arguments">""</string>
             <string name="proxy-Event sources">""</string>
@@ -453,7 +454,7 @@
               <string name="proxy-Label">""</string>
               <string name="proxy-Kind">"Normal"</string>
               <bool name="proxy-Enabled">1</bool>
-              <string name="proxy-Tooltip">""</string>
+              <string name="proxy-Tooltip">"Copy HTML to clipboard"</string>
               <string name="proxy-Help text">""</string>
               <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
             </document>
@@ -486,7 +487,7 @@
               <string name="proxy-Label">""</string>
               <string name="proxy-Kind">"Normal"</string>
               <bool name="proxy-Enabled">1</bool>
-              <string name="proxy-Tooltip">""</string>
+              <string name="proxy-Tooltip">"Increase font size"</string>
               <string name="proxy-Help text">""</string>
               <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
             </document>
@@ -507,7 +508,7 @@
               <string name="proxy-Label">""</string>
               <string name="proxy-Kind">"Normal"</string>
               <bool name="proxy-Enabled">1</bool>
-              <string name="proxy-Tooltip">""</string>
+              <string name="proxy-Tooltip">"Decrease font size"</string>
               <string name="proxy-Help text">""</string>
               <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
             </document>
@@ -540,7 +541,7 @@
               <string name="proxy-Label">""</string>
               <string name="proxy-Kind">"Normal"</string>
               <bool name="proxy-Enabled">1</bool>
-              <string name="proxy-Tooltip">""</string>
+              <string name="proxy-Tooltip">"Toggle this line as dialogue "</string>
               <string name="proxy-Help text">""</string>
               <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
             </document>
@@ -561,7 +562,7 @@
               <string name="proxy-Label">""</string>
               <string name="proxy-Kind">"Normal"</string>
               <bool name="proxy-Enabled">1</bool>
-              <string name="proxy-Tooltip">""</string>
+              <string name="proxy-Tooltip">"Move all dialogue lines from this point down"</string>
               <string name="proxy-Help text">""</string>
               <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
             </document>
@@ -582,7 +583,7 @@
               <string name="proxy-Label">""</string>
               <string name="proxy-Kind">"Normal"</string>
               <bool name="proxy-Enabled">1</bool>
-              <string name="proxy-Tooltip">""</string>
+              <string name="proxy-Tooltip">"Move all dialogue lines from this point up"</string>
               <string name="proxy-Help text">""</string>
               <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
             </document>
@@ -603,7 +604,7 @@
               <string name="proxy-Label">""</string>
               <string name="proxy-Kind">"Normal"</string>
               <bool name="proxy-Enabled">1</bool>
-              <string name="proxy-Tooltip">""</string>
+              <string name="proxy-Tooltip">"Refresh dialogue lines"</string>
               <string name="proxy-Help text">""</string>
               <string name="proxy-Platform">"&lt;Any platform&gt;"</string>
             </document>
@@ -687,6 +688,7 @@
             <bool name="proxy-wxSHAPED">0</bool>
             <bool name="proxy-wxADJUST_MINSIZE">0</bool>
             <bool name="proxy-wxFIXED_MINSIZE">0</bool>
+            <bool name="proxy-wxRESERVE_SPACE_EVEN_IF_HIDDEN">0</bool>
             <string name="proxy-Custom arguments">""</string>
             <string name="proxy-Custom ctor arguments">""</string>
           </document>
