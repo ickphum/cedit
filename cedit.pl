@@ -164,9 +164,21 @@ sub new { # {{{2
     Wx::Event::EVT_MENU($self->frame, wxID_REFRESH, 
         sub {
 
+            # ShowPosition puts the specified position at the bottom of the window, so find out
+            # what position is there now.
+            my $text_txt = wxTheApp->control->{text_txt};
+            my (undef, $height) = $text_txt->GetSizeWH;
+            my ($status, $column, $row) = $text_txt->HitTest([0,$height - 10]);
+            my $position = $text_txt->XYToPosition($column, $row);
+
             # fake a font size change to refresh the styles
             $self->change_font_size(1);
             $self->change_font_size(-1);
+
+            # show previous position
+            $text_txt->ShowPosition($position);
+
+            return;
         });
 
     $self->frame->SetAcceleratorTable( Wx::AcceleratorTable->new (
