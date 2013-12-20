@@ -138,6 +138,8 @@ __PACKAGE__->mk_accessors( qw(frame xrc filename key saved_checksum control curr
     default_style dialogue_style dialogue_line) 
     );
 
+my $current_line_count;
+
 sub new { # {{{2
     my( $class, $option ) = @_;
     my $self = $class->SUPER::new();
@@ -217,6 +219,8 @@ sub new { # {{{2
         $self->control->{ $child->GetName } = $child;
     }
 
+    my $text_txt = $self->control->{text_txt};
+
     $self->SetTopWindow($self->frame);
     $self->frame->Show(1);
 
@@ -226,7 +230,7 @@ sub new { # {{{2
     my $dialogue_style = Wx::TextAttr->new(wxBLACK, Wx::Colour->new('#dddddd'));
     $dialogue_style->SetLeftIndent(100);
     $self->dialogue_style($dialogue_style);
-    my $default_style = Wx::TextAttr->new($self->control->{text_txt}->GetForegroundColour, wxWHITE);
+    my $default_style = Wx::TextAttr->new($text_txt->GetForegroundColour, wxWHITE);
     $default_style->SetLeftIndent(0);
     $self->default_style($default_style);
     $self->dialogue_line({});
@@ -234,6 +238,25 @@ sub new { # {{{2
     if ($option->{file}) {
         open_file($self->frame, undef, $option->{file});
     }
+
+    $current_line_count = $text_txt->GetNumberOfLines;
+    Wx::Event::EVT_TEXT($self->frame, $text_txt, sub {
+        my ($frame, $event) = @_;
+
+        $event->Skip;
+
+        my $text_txt = $event->GetEventObject;
+        my $line_count = $text_txt->GetNumberOfLines;
+        if (my $change = ($line_count - $current_line_count)) {
+
+            # this event fires on any change, ie block delete, etc;
+            # we only want to fire on single line changes.
+            $self->shift_dialogue_styles($change) if abs($change) == 1;
+        }
+        $current_line_count = $line_count;
+
+        return;
+    });
 
     return $self;
 }
@@ -440,12 +463,13 @@ sub shift_dialogue_styles { #{{{2
 
     my $pos = $text_txt->GetInsertionPoint;
     (undef, my $current_line) = $text_txt->PositionToXY($pos);
-    $log->info("current_line $current_line");
+    $log->info("shift_dialogue_styles: current_line $current_line, increment $increment");
 
     my @dialogue_lines = sort { $increment > 0 ? $b <=> $a : $a <=> $b } keys %{ $self->dialogue_line };
 
     for my $line_nbr (@dialogue_lines) {
         next unless $line_nbr >= $current_line;
+        $log->info("shift dialogue style from $line_nbr to $line_nbr + $increment");
         $self->toggle_dialogue_style($line_nbr);
         $self->toggle_dialogue_style($line_nbr + $increment);
     }
