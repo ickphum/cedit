@@ -182,10 +182,37 @@ sub new { # {{{2
 
             return;
         });
+    Wx::Event::EVT_MENU($self->frame, wxID_FIND, 
+        sub {
+
+            my $text_txt = wxTheApp->control->{text_txt};
+            my $find_str = wxTheApp->frame->GetToolBar->FindControl(wxID_FORWARD)->GetValue;
+
+            wxTheApp->search_text_forward($find_str);
+
+            return;
+        });
+    Wx::Event::EVT_MENU($self->frame, wxID_REPLACE, 
+        sub {
+
+            my $text_txt = wxTheApp->control->{text_txt};
+            my $replace_str = wxTheApp->frame->GetToolBar->FindControl(wxID_MORE)->GetValue;
+            my ($start, $end) = $text_txt->GetSelection;
+            if ($end > $start) {
+                $text_txt->Replace($start, $end, $replace_str);
+
+                my $find_str = wxTheApp->frame->GetToolBar->FindControl(wxID_FORWARD)->GetValue;
+                wxTheApp->search_text_forward($find_str);
+            }
+
+            return;
+        });
 
     $self->frame->SetAcceleratorTable( Wx::AcceleratorTable->new (
         [ wxACCEL_CTRL, ord('S'), wxID_SAVE ],
         [ wxACCEL_CTRL, ord('D'), wxID_HELP ],
+        [ wxACCEL_CTRL, ord('F'), wxID_FIND ],
+        [ wxACCEL_CTRL, ord('R'), wxID_REPLACE ],
     ));
 
     Wx::Event::EVT_CLOSE($self->frame, sub {
@@ -208,7 +235,7 @@ sub new { # {{{2
         $top ||= 0;
     }
     else {
-        ($width, $height, $left, $top) = (500,400,400,400);
+        ($width, $height, $left, $top) = (550,400,400,400);
     }
     $log->debug("screen geom $width x $height @ $left, $top");
     $self->frame->SetSize($left, $top, $width, $height);
@@ -218,6 +245,11 @@ sub new { # {{{2
         $log->debug("child $child " . $child->GetName);
         $self->control->{ $child->GetName } = $child;
     }
+
+    # put the text controls in the toolbar in control as well
+#    my $toolbar = $self->frame->GetToolBar;
+#    $self->control->{find_txt} = $toolbar->FindById(wxID_FIND)->GetControl
+#        or die "can't find find_txt";
 
     my $text_txt = $self->control->{text_txt};
 
@@ -463,7 +495,7 @@ sub shift_dialogue_styles { #{{{2
 
     my $pos = $text_txt->GetInsertionPoint;
     (undef, my $current_line) = $text_txt->PositionToXY($pos);
-    $log->info("shift_dialogue_styles: current_line $current_line, increment $increment");
+    $log->debug("shift_dialogue_styles: current_line $current_line, increment $increment");
 
     my @dialogue_lines = sort { $increment > 0 ? $b <=> $a : $a <=> $b } keys %{ $self->dialogue_line };
 
@@ -564,7 +596,46 @@ EOT
 }
 
 ################################################################################
+sub search_text_forward { #{{{2
+    my ($self, $search_expr) = @_;
 
+    my $text_txt = $self->control->{text_txt};
+    my $nbr_lines = $text_txt->GetNumberOfLines;
+    my $pos = $text_txt->GetInsertionPoint;
+    my ($column, $line) = $text_txt->PositionToXY($pos);
+
+    $search_expr = quotemeta $search_expr;
+
+    while ($line < $nbr_lines) {
+        my $text = $text_txt->GetLineText($line);
+
+        # are we on the cursor line?
+        if ($column >= 0) {
+
+            # remove everything up to and including the first char of the previous match
+            substr($text, 0, $column + 1, '');
+        }
+
+        # minimal match of the preceding chunk here
+        if ($text =~ /(.*?)?${search_expr}/i) {
+            $column += length($1) + 1;
+            my $start = $text_txt->XYToPosition($column, $line);
+            my $end = $start + length($search_expr);
+            $text_txt->SetSelection($start,$end);
+            $text_txt->ShowPosition($start);
+            $text_txt->SetFocus;
+            return;
+        }
+        else {
+            $line++;
+            $column = -1;
+        }
+    }
+
+    return;
+}
+
+################################################################################
 sub OnInit { # {{{1
     my( $self ) = shift;
 

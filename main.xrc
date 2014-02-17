@@ -2,7 +2,7 @@
 <resource version="2.3.0.1" xmlns="http://www.wxwidgets.org/wxxrc">
     <object class="wxFrame" name="main">
         <style>wxCAPTION|wxRESIZE_BORDER|wxSYSTEM_MENU|wxCLOSE_BOX</style>
-        <size>400,300</size>
+        <size>550,300</size>
         <title>cedit</title>
         <centered>1</centered>
         <object class="wxToolBar" name="ID_TOOLBAR">
@@ -47,6 +47,18 @@
             <object class="tool" name="wxID_REFRESH">
                 <bitmap>image/dialogue_refresh.png</bitmap>
                 <tooltip>Refresh dialogue lines</tooltip>
+            </object>
+            <object class="separator">
+            </object>
+            <object class="wxTextCtrl" name="wxID_FORWARD">
+            </object>
+            <object class="tool" name="wxID_FIND">
+                <bitmap>image/find.png</bitmap>
+            </object>
+            <object class="wxTextCtrl" name="wxID_MORE">
+            </object>
+            <object class="tool" name="wxID_REPLACE">
+                <bitmap>image/replace.png</bitmap>
             </object>
         </object>
         <object class="wxTextCtrl" name="text_txt">
