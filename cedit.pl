@@ -30,7 +30,7 @@ use Wx qw(:everything);
 use Wx::XRC;
 use Wx::FS;
 use Wx::RichText;
-use Alien::wxWidgets;
+# use Alien::wxWidgets;
 
 use Data::Dumper;
 
@@ -257,6 +257,8 @@ sub new { # {{{2
     $self->frame->Show(1);
 
     $self->current_dir($option->{bin_dir});
+
+    # initialise a blank checksum so we know how long a checksum is
     $self->saved_checksum( sha1_hex('') );
 
     my $dialogue_style = Wx::TextAttr->new(wxBLACK, Wx::Colour->new('#dddddd'));
@@ -270,25 +272,37 @@ sub new { # {{{2
     if ($option->{file}) {
         open_file($self->frame, undef, $option->{file});
     }
+    else {
+        $text_txt->SetValue("Here's some sample text.\nNew line.\n\nNew paragraph\n\nA plain scalar is unquoted. All plain scalars are automatic candidates for implicit tagging. This means that their tag may be determined automatically by examination. The typical uses for this are plain alpha strings, integers, real numbers, dates, times and currency.");
+        $text_txt->SetStyle(50, 100, $dialogue_style);
+    }
+
+#    my $stylesheet = Wx::RichTextStyleSheet->new;
+#    my $dialog_style = Wx::RichTextParagraphStyleDefinition->new('dialog');
+#    my $dialog_attr = Wx::RichTextAttr->new;
+#    $dialog_attr->SetLeftIndent(100,200);
+#    $dialog_style->SetStyle($dialog_attr);
+#    $stylesheet->AddParagraphStyle($dialog_style);
+#    $text_txt->SetStyleSheet($stylesheet);
 
     $current_line_count = $text_txt->GetNumberOfLines;
-    Wx::Event::EVT_TEXT($self->frame, $text_txt, sub {
-        my ($frame, $event) = @_;
-
-        $event->Skip;
-
-        my $text_txt = $event->GetEventObject;
-        my $line_count = $text_txt->GetNumberOfLines;
-        if (my $change = ($line_count - $current_line_count)) {
-
-            # this event fires on any change, ie block delete, etc;
-            # we only want to fire on single line changes.
-            $self->shift_dialogue_styles($change) if abs($change) == 1;
-        }
-        $current_line_count = $line_count;
-
-        return;
-    });
+#    Wx::Event::EVT_TEXT($self->frame, $text_txt, sub {
+#        my ($frame, $event) = @_;
+#
+#        $event->Skip;
+#
+#        my $text_txt = $event->GetEventObject;
+#        my $line_count = $text_txt->GetNumberOfLines;
+#        if (my $change = ($line_count - $current_line_count)) {
+#
+#            # this event fires on any change, ie block delete, etc;
+#            # we only want to fire on single line changes.
+#            $self->shift_dialogue_styles($change) if abs($change) == 1;
+#        }
+#        $current_line_count = $line_count;
+#
+#        return;
+#    });
 
     return $self;
 }
@@ -360,10 +374,20 @@ sub save_file { #{{{2
         height => $height,
     });
 
+#    my @yaml_chars = unpack('C*', $yaml);
+#    $log->info("yaml: $yaml");
+#    $log->info("yaml_chars: @yaml_chars");
+#
+#    $yaml =~ s/\r\n/\n/g;
+#
+#    @yaml_chars = unpack('C*', $yaml);
+#    $log->info("yaml: $yaml");
+#    $log->info("yaml_chars: @yaml_chars");
+
     # save the checksum so we can identify wrong keys
     my $file_text = $checksum . pack('S', length $yaml) . $yaml . $app->cipher->encrypt($edit_text);
 
-    write_file($filename, \$file_text);
+    write_file($filename, { binmode => ':raw' }, \$file_text);
 
     $log->info("save to $filename");
 
@@ -389,7 +413,7 @@ sub open_file { #{{{2
     $app->cipher( Crypt::CBC->new( -key => $key, -cipher => 'Blowfish') );
 
     $log->debug("open from $filename");
-    my $file_text = read_file($filename);
+    my $file_text = read_file($filename, binmode => ':raw');
 
     # the file text contains the checksum of the plaintext, so we can warn about incorrect keys.
     # Assume that all checksums will be the same length (until we do something silly like change the checksum method).
@@ -400,13 +424,7 @@ sub open_file { #{{{2
     # remove and unpack the yaml chunk
     my $yaml_length = unpack('S', substr($file_text, 0, 2, ''));
     my $yaml = substr($file_text, 0, $yaml_length, '');
-    my $property = Load($yaml) ;
-
-    # apply the properties
-    $app->dialogue_line( $property->{dialogue_line} );
-    $app->change_font_size(0, $property->{font_size});
-    $frame->SetSize($property->{width}, $property->{height});
-    $frame->Move([ $property->{left}, $property->{top} ]);
+    $log->info("yaml length $yaml_length : $yaml");
 
     my $edit_text = $app->cipher->decrypt($file_text);
     my $edit_checksum = sha1_hex($edit_text);
@@ -420,6 +438,14 @@ Do you wish to display the possibly garbled file? There's almost no chance of th
 EOT
         return unless wxYES == Wx::MessageBox($message, "Bad Checksum", wxYES_NO, $frame);
     }
+
+    my $property = Load($yaml) ;
+
+    # apply the properties
+    $app->dialogue_line( $property->{dialogue_line} );
+    $app->change_font_size(0, $property->{font_size});
+    $frame->SetSize($property->{width}, $property->{height});
+    $frame->Move([ $property->{left}, $property->{top} ]);
 
     # the RichText control will drop a single trailing linefeed, if one or more LFs end the string.
     # Stop this happening so we can compare file and edit checksums without displaying the content.
@@ -459,28 +485,63 @@ sub change_font_size { #{{{2
 ################################################################################
 sub toggle_dialogue_style { #{{{2
     my ($self, $line_nbr) = @_;
+#    my @from = caller(1);
+#    $log->info("from @from");
 
     my $text_txt = $self->control->{text_txt};
 
+    my $number_lines = $text_txt->GetNumberOfLines;
+#    $log->info("number_lines $number_lines");
+
+    my ($start, $end, $switch_on);
+
     unless (defined $line_nbr) {
-        my $pos = $text_txt->GetInsertionPoint;
-        (undef, $line_nbr) = $text_txt->PositionToXY($pos);
-        $log->info("current pos = $pos, line $line_nbr");
+        my $cursor_pos = $text_txt->GetInsertionPoint;
+        (undef, $line_nbr) = $text_txt->PositionToXY($cursor_pos);
+        $log->info("current pos = $cursor_pos, line $line_nbr");
     }
 
-    my $length = $text_txt->GetLineLength($line_nbr);
-    my $start = $text_txt->XYToPosition(0,$line_nbr);
-    my $end = $text_txt->XYToPosition($length,$line_nbr);
+    if (defined $line_nbr) {
 
-    my $style;
-    if (exists $self->dialogue_line->{ $line_nbr } ) {
-        $log->info("clear style");
-        $style = $self->default_style;
-        delete $self->dialogue_line->{ $line_nbr };
+        my $length = $text_txt->GetLineLength($line_nbr);
+        $start = $text_txt->XYToPosition(0,$line_nbr);
+        $end = $text_txt->XYToPosition($length,$line_nbr);
+        $log->info("length, start, end : $length, $start, $end");
+        $switch_on = ! exists $self->dialogue_line->{ $line_nbr };
     }
     else {
+        my $cursor_pos = $text_txt->GetInsertionPoint;
+        my $text = $text_txt->GetValue;
+        $switch_on = $text_txt->GetStyle($cursor_pos)->GetLeftIndent == 0;
+
+        $start = $cursor_pos;
+        $end = $cursor_pos;
+        my @chars = unpack('C*', $text);
+
+        # go back to previous LF
+        while ($start >= 0 && $chars[$start] != 10) {
+            $start--;
+        }
+        $start++;
+
+        # go forward to next LF
+        while ($end <= $#chars && $chars[$end] != 10) {
+            $end++;
+        }
+
+        $log->info("cursor_pos $cursor_pos, start $start, end $end");
+        $line_nbr = "${start}_${end}";
+    }
+
+    my $style;
+    if ($switch_on) {
         $style = $self->dialogue_style;
         $self->dialogue_line->{ $line_nbr } = 1;
+    }
+    else {
+        $log->debug("clear style");
+        $style = $self->default_style;
+        delete $self->dialogue_line->{ $line_nbr };
     }
     $text_txt->SetStyle($start, $end, $style);
 
@@ -493,6 +554,21 @@ sub shift_dialogue_styles { #{{{2
 
     my $text_txt = $self->control->{text_txt};
 
+#    my $left_indent;
+#    my $switches = 0;
+#    for my $position (0 .. $text_txt->GetLastPosition) {
+#        if (my $style = $text_txt->GetStyle($position)) {
+#            # $log->info("found style at $position");
+#            if (! defined $left_indent || $left_indent != $style->GetLeftIndent) {
+#                $left_indent = $style->GetLeftIndent;
+#                $switches++;
+#            }
+#        }
+#    }
+#
+#    $log->info("found $switches switches");
+#    return;
+
     my $pos = $text_txt->GetInsertionPoint;
     (undef, my $current_line) = $text_txt->PositionToXY($pos);
     $log->debug("shift_dialogue_styles: current_line $current_line, increment $increment");
@@ -501,7 +577,7 @@ sub shift_dialogue_styles { #{{{2
 
     for my $line_nbr (@dialogue_lines) {
         next unless $line_nbr >= $current_line;
-        $log->info("shift dialogue style from $line_nbr to $line_nbr + $increment");
+        $log->debug("shift dialogue style from $line_nbr to $line_nbr + $increment");
         $self->toggle_dialogue_style($line_nbr);
         $self->toggle_dialogue_style($line_nbr + $increment);
     }
@@ -515,12 +591,16 @@ sub shift_dialogue_styles { #{{{2
 sub refresh_dialogue_styles { #{{{2
     my ($self) = @_;
 
+#    return;
+
     my $text_txt = $self->control->{text_txt};
 
     for my $line_nbr (keys %{ $self->dialogue_line }) {
         my $length = $text_txt->GetLineLength($line_nbr);
         my $start = $text_txt->XYToPosition(0,$line_nbr);
         my $end = $text_txt->XYToPosition($length,$line_nbr);
+        next unless $start >= 0;
+        $log->info("line_nbr $line_nbr : set dialog from $start to $end");
         $text_txt->SetStyle($start, $end, $self->dialogue_style);
     }
 

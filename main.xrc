@@ -62,7 +62,7 @@
             </object>
         </object>
         <object class="wxTextCtrl" name="text_txt">
-            <style>wxTE_MULTILINE</style>
+            <style>wxTE_MULTILINE|wxTE_RICH|wxTE_RICH2</style>
         </object>
     </object>
 </resource>

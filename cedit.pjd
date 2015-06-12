@@ -871,8 +871,8 @@
             <bool name="proxy-wxTE_PROCESS_TAB">0</bool>
             <bool name="proxy-wxTE_PASSWORD">0</bool>
             <bool name="proxy-wxTE_READONLY">0</bool>
-            <bool name="proxy-wxTE_RICH">0</bool>
-            <bool name="proxy-wxTE_RICH2">0</bool>
+            <bool name="proxy-wxTE_RICH">1</bool>
+            <bool name="proxy-wxTE_RICH2">1</bool>
             <bool name="proxy-wxTE_AUTO_URL">0</bool>
             <bool name="proxy-wxTE_NOHIDESEL">0</bool>
             <bool name="proxy-wxTE_LEFT">0</bool>
