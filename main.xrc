@@ -5,6 +5,7 @@
         <size>550,300</size>
         <title>cedit</title>
         <centered>1</centered>
+        <icon>image/cedit.png</icon>
         <object class="wxToolBar" name="ID_TOOLBAR">
             <style>wxTB_FLAT|wxTB_HORIZONTAL</style>
             <object class="tool" name="wxID_NEW">
@@ -35,14 +36,6 @@
             <object class="tool" name="wxID_HELP">
                 <bitmap>image/dialogue.png</bitmap>
                 <tooltip>Toggle this line as dialogue </tooltip>
-            </object>
-            <object class="tool" name="wxID_DOWN">
-                <bitmap>image/dialogue_down.png</bitmap>
-                <tooltip>Move all dialogue lines from this point down</tooltip>
-            </object>
-            <object class="tool" name="wxID_UP">
-                <bitmap>image/dialogue_up.png</bitmap>
-                <tooltip>Move all dialogue lines from this point up</tooltip>
             </object>
             <object class="tool" name="wxID_REFRESH">
                 <bitmap>image/dialogue_refresh.png</bitmap>

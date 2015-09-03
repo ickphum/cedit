@@ -17,105 +17,6 @@ use English qw(-no_match_vars);
 
 my $log;
 
-# CeditXRCHandler {{{1
-
-# we need a custom handler to support richText controls
-
-package CeditXRCHandler;
-
-use strict;
-use warnings;
-
-use Wx qw(:everything);
-use Wx::XRC;
-use Wx::FS;
-use Wx::RichText;
-# use Alien::wxWidgets;
-
-use Data::Dumper;
-
-use base 'Wx::PlXmlResourceHandler';
-
-################################################################################
-sub constructor_args { #{{{2
-    my ($self) = @_;
-
-    # this seems universal
-    my @args = (
-        $self->GetParentAsWindow,
-        $self->GetID,
-    );
-
-    if ($self->{class} eq 'wxRichTextCtrl') {
-        push @args, 
-            $self->GetText('value'),
-            $self->GetPosition,
-            $self->GetSize,
-            $self->GetStyle( "style", 0 );
-    }
-    else {
-        $log->logdie("unhandled class $self->{class}");
-    }
-
-    return @args;
-}
-
-################################################################################
-# this method must return true if the handler can handle the given XML node
-sub CanHandle { #{{{2
-    my ($self, $xmlnode) = @_;
-    my $property = Alien::wxWidgets->version >= 2.009
-        ? $xmlnode->GetAttributes
-        : $xmlnode->GetProperties;
-    while ($property) {
-
-        # add the properties to the object itself; I couldn't get the class in DoCreateResource()
-        # without this
-        $self->{$property->GetName()} = $property->GetValue;
-        $property = $property->GetNext;
-    }
-
-    my $rc = $self->{class} =~ /wxRichTextCtrl/ ? 1 : 0;
-
-    $log->debug("CanHandle $self->{class} : $rc");
-
-    return $rc;
-}
-
-################################################################################
-# this method is where the actual creation takes place; it has access to the custom properties
-# for the object via GetText(), GetColour(), etc.
-sub DoCreateResource { #{{{2
-    my ($self) = shift;
-
-    die 'LoadOnXXX not supported by this handler' if $self->GetInstance;
-
-    my $app = wxTheApp;
-
-    # get the control's name, ie the 'Id name' property in DialogBlocks
-    my $control_name = $self->GetName;
-
-    $log->debug("DoCreateResource: $control_name, $self->{class}, parent class: " . ref $self->GetParentAsWindow);
-
-    (my $control_class = $self->{class}) =~ s/wx/Wx::/;
-
-    # get the constructor arg list for this class
-    my @constructor_args = $self->constructor_args;
-
-    $log->debug("build $control_name which is a $self->{class} ($control_class), args = " . Dumper(\@constructor_args));
-
-    # build the control and any controls contained inside it; this could call us recursively
-    my $control = $control_class->new( @constructor_args );
-
-    $self->SetupWindow( $control );
-    $self->CreateChildren( $control );
-
-    $control->SetName($control_name);
-
-#    $log->debug("completed $control_name");
-    return $control;
-}
-
 # CeditApp {{{1
 
 package CeditApp;
@@ -133,9 +34,10 @@ use Wx::DND;
 use Digest::SHA qw(sha1_hex);
 use Crypt::CBC;
 use YAML::XS qw(Dump Load);
+use English qw(-no_match_vars);
 
 __PACKAGE__->mk_accessors( qw(frame xrc filename key saved_checksum control current_dir cipher 
-    default_style dialogue_style dialogue_line) 
+    default_style dialogue_style dialogue_transitions) 
     );
 
 my $current_line_count;
@@ -143,6 +45,8 @@ my $current_line_count;
 sub new { # {{{2
     my( $class, $option ) = @_;
     my $self = $class->SUPER::new();
+
+    die "No main.xrc" unless -f 'main.xrc';
 
     $self->xrc( Wx::XmlResource->new() );
     $self->xrc->InitAllHandlers;
@@ -153,6 +57,8 @@ sub new { # {{{2
     $self->xrc->Load('main.xrc');
 
     $self->frame( $self->xrc->LoadFrame(undef, 'main'));
+#    my $icon_image = Wx::Image->new('image/cedit.png', wxBITMAP_TYPE_ANY);
+#    $self->frame->SetIcon(Wx::Icon->new($icon_image));
 
     Wx::Event::EVT_MENU($self->frame, wxID_NEW, \&new_file);
     Wx::Event::EVT_MENU($self->frame, wxID_OPEN, \&open_file);
@@ -160,28 +66,28 @@ sub new { # {{{2
     Wx::Event::EVT_MENU($self->frame, wxID_ZOOM_IN, sub { $self->change_font_size(2); });
     Wx::Event::EVT_MENU($self->frame, wxID_ZOOM_OUT, sub { $self->change_font_size(-2); });
     Wx::Event::EVT_MENU($self->frame, wxID_HELP, sub { $self->toggle_dialogue_style; });
-    Wx::Event::EVT_MENU($self->frame, wxID_DOWN, sub { $self->shift_dialogue_styles(1); });
-    Wx::Event::EVT_MENU($self->frame, wxID_UP, sub { $self->shift_dialogue_styles(-1); });
+#    Wx::Event::EVT_MENU($self->frame, wxID_DOWN, sub { $self->shift_dialogue_styles(1); });
+#    Wx::Event::EVT_MENU($self->frame, wxID_UP, sub { $self->shift_dialogue_styles(-1); });
     Wx::Event::EVT_MENU($self->frame, wxID_SAVEAS, \&copy_to_html);
-    Wx::Event::EVT_MENU($self->frame, wxID_REFRESH, 
-        sub {
-
-            # ShowPosition puts the specified position at the bottom of the window, so find out
-            # what position is there now.
-            my $text_txt = wxTheApp->control->{text_txt};
-            my (undef, $height) = $text_txt->GetSizeWH;
-            my ($status, $column, $row) = $text_txt->HitTest([0,$height - 10]);
-            my $position = $text_txt->XYToPosition($column, $row);
-
-            # fake a font size change to refresh the styles
-            $self->change_font_size(1);
-            $self->change_font_size(-1);
-
-            # show previous position
-            $text_txt->ShowPosition($position);
-
-            return;
-        });
+    Wx::Event::EVT_MENU($self->frame, wxID_REFRESH, sub { $self->refresh_dialogue_styles; }); 
+#        sub {
+#
+#            # ShowPosition puts the specified position at the bottom of the window, so find out
+#            # what position is there now.
+#            my $text_txt = wxTheApp->control->{text_txt};
+#            my (undef, $height) = $text_txt->GetSizeWH;
+#            my ($status, $column, $row) = $text_txt->HitTest([0,$height - 10]);
+#            my $position = $text_txt->XYToPosition($column, $row);
+#
+#            # fake a font size change to refresh the styles
+#            $self->change_font_size(1);
+#            $self->change_font_size(-1);
+#
+#            # show previous position
+#            $text_txt->ShowPosition($position);
+#
+#            return;
+#        });
     Wx::Event::EVT_MENU($self->frame, wxID_FIND, 
         sub {
 
@@ -262,19 +168,20 @@ sub new { # {{{2
     $self->saved_checksum( sha1_hex('') );
 
     my $dialogue_style = Wx::TextAttr->new(wxBLACK, Wx::Colour->new('#dddddd'));
-    $dialogue_style->SetLeftIndent(100);
+#    $dialogue_style->SetLeftIndent(100);
     $self->dialogue_style($dialogue_style);
-    my $default_style = Wx::TextAttr->new($text_txt->GetForegroundColour, wxWHITE);
-    $default_style->SetLeftIndent(0);
+    my $default_style = Wx::TextAttr->new($text_txt->GetForegroundColour, $text_txt->GetBackgroundColour);
+#    $default_style->SetLeftIndent(0);
     $self->default_style($default_style);
-    $self->dialogue_line({});
+#    $self->dialogue_line({});
+#    $self->dialogue_transitions([]);
 
     if ($option->{file}) {
-        open_file($self->frame, undef, $option->{file});
+        open_file($self->frame, undef, $option);
     }
     else {
-        $text_txt->SetValue("Here's some sample text.\nNew line.\n\nNew paragraph\n\nA plain scalar is unquoted. All plain scalars are automatic candidates for implicit tagging. This means that their tag may be determined automatically by examination. The typical uses for this are plain alpha strings, integers, real numbers, dates, times and currency.");
-        $text_txt->SetStyle(50, 100, $dialogue_style);
+        $text_txt->SetValue("Here's some sample text.\nNew line.\n\nNew paragraph\n\nA plain a b c 1 2 3 scalar is unquoted.\n\nAll plain scalars are automatic candidates for implicit tagging.\n\nThis means that their tag may be determined automatically by examination.\n\nThe typical uses for this are plain alpha strings, integers, real numbers, dates, times and currency.");
+#        $text_txt->SetStyle(50, 100, $dialogue_style);
     }
 
 #    my $stylesheet = Wx::RichTextStyleSheet->new;
@@ -286,23 +193,91 @@ sub new { # {{{2
 #    $text_txt->SetStyleSheet($stylesheet);
 
     $current_line_count = $text_txt->GetNumberOfLines;
-#    Wx::Event::EVT_TEXT($self->frame, $text_txt, sub {
-#        my ($frame, $event) = @_;
-#
-#        $event->Skip;
-#
-#        my $text_txt = $event->GetEventObject;
-#        my $line_count = $text_txt->GetNumberOfLines;
-#        if (my $change = ($line_count - $current_line_count)) {
-#
-#            # this event fires on any change, ie block delete, etc;
-#            # we only want to fire on single line changes.
-#            $self->shift_dialogue_styles($change) if abs($change) == 1;
-#        }
-#        $current_line_count = $line_count;
-#
-#        return;
-#    });
+    Wx::Event::EVT_CHAR($text_txt, sub {
+        my ($frame, $event) = @_;
+
+        my $text_txt = $event->GetEventObject;
+
+        my ($keycode, $shift_down, $ctrl_down) = ($event->GetKeyCode, $event->ShiftDown, $event->ControlDown);
+        my ($selection_from, $selection_to) = $text_txt->GetSelection;
+        my $selected_text = $text_txt->GetStringSelection;
+        my $selection_length = $selection_to - $selection_from;
+        my $current_location = $text_txt->GetInsertionPoint;
+        my $end_of_text = $text_txt->GetLastPosition;
+
+        # on Windows, handle the 'feature' by which double-clicking on a word selects the
+        # word and the following space, but if a printable character is entered, the space is not removed
+        # with the rest of the selection. 
+        if ($selection_length > 1 && $keycode >= 32 && $keycode <= 126 && $OSNAME =~ /Win32/ && $selected_text =~ /\s\z/) {
+#            $log->info("fix word selection");
+            $selection_length--;
+        }
+
+        # only check on the clipboard if we need to, ie we're pasting
+        my $clipboard_length = 0;
+        if ($keycode == 22) {
+
+            # copied from wxperl_demo.pl
+            wxTheClipboard->Open;
+            my $unicodetext_wxwidgets_id = 13;
+            my $unicodetextformat = ( defined(&Wx::wxDF_UNICODETEXT) ) 
+                ? wxDF_UNICODETEXT() 
+                : Wx::DataFormat->newNative( $unicodetext_wxwidgets_id );
+            if( wxTheClipboard->IsSupported( wxDF_TEXT ) || wxTheClipboard->IsSupported( $unicodetextformat ) ) {
+                my $data = Wx::TextDataObject->new;
+                my $ok = wxTheClipboard->GetData( $data );
+                if( $ok ) {
+                    $clipboard_length = length $data->GetText;
+                }
+            }
+            wxTheClipboard->Close;
+        }
+
+        my $input_length = ($keycode >= 32 && $keycode <= 126) || $keycode == 13
+            ? 1                                     # printable chars
+            : $keycode == 8                        # backspace
+                ? $selection_length || $current_location == 0
+                    ? 0                             # with selection or at start of buffer, 0 chars inserted
+                    : -1                            # otherwise, one char removed
+                : $keycode == 127                  # delete
+                    ? $selection_length || $current_location == $end_of_text
+                        ? 0                         # with selection or at end of buffer, 0 chars inserted
+                        : -1                        # otherwise, one char removed
+                    : $keycode == 24
+                        ? 0                         # cut always adds 0 chars, may remove selection
+                        : $keycode == 22
+                            ? $clipboard_length     # paste
+                            : undef;                # all other keys don't change the buffer
+
+        $event->Skip;
+
+        return unless defined $input_length;
+
+        # change in transitions from this point on is input length - selection length
+        return unless my $transition_change = $input_length - $selection_length;
+
+#        $log->info("transition_change $transition_change, keycode $keycode at $current_location, end = $end_of_text, selection '$selected_text' length = $selection_length, clipboard = $clipboard_length; input length " 
+#            . (defined $input_length ? $input_length : 'undef'));
+
+        my $dialogue_transitions = $self->dialogue_transitions;
+        for my $i (0 .. $#{ $dialogue_transitions }) {
+
+            # we want to match the end where we're on it (so it gets pushed if we type at the end of dialog)
+            # but not the start (so it stays still if we type at the start of dialog)
+            if (($i % 2 == 0 && $dialogue_transitions->[$i] > $current_location)
+                || ($i % 2 && $dialogue_transitions->[$i] >= $current_location))
+            {
+                for my $j ($i .. $#{ $dialogue_transitions }) {
+                    $dialogue_transitions->[$j] += $transition_change;
+                }
+                last;
+            }
+        }
+
+#        $log->info("dialogue_transitions now " . Dumper($dialogue_transitions));
+
+        return;
+    });
 
     return $self;
 }
@@ -339,6 +314,7 @@ sub save_file { #{{{2
             return unless wxYES == Wx::MessageBox("File '$filename' exists; ok to overwrite?", "Confirm Overwrite", wxYES_NO, $frame);
         }
         $app->current_dir($file_dialog->GetDirectory);
+        $app->filename( $filename );
 
         my $key;
         while (1) {
@@ -350,7 +326,6 @@ sub save_file { #{{{2
             Wx::MessageBox("The keys do not match.", "No Match", wxOK, $frame);
         }
 
-        $app->filename( $filename );
         $app->key( $key );
         $app->cipher( Crypt::CBC->new( -key => $key, -cipher => 'Blowfish') );
     }
@@ -366,7 +341,8 @@ sub save_file { #{{{2
     my ($left, $top) = $frame->GetPositionXY;
 
     my $yaml = Dump({
-        dialogue_line => $app->dialogue_line,
+#        dialogue_line => $app->dialogue_line,
+        dialogue_transitions => $app->dialogue_transitions,
         font_size => $text_txt->GetFont->GetPointSize,
         left => $left,
         top => $top,
@@ -396,10 +372,12 @@ sub save_file { #{{{2
 
 ################################################################################
 sub open_file { #{{{2
-    my ($frame, $event, $filename) = @_;
+    my ($frame, $event, $option) = @_;
 
     my $app = wxTheApp;
     return unless $app->check_for_changes;
+
+    my $filename = $option->{file};
 
     unless ($filename) {
 
@@ -409,7 +387,10 @@ sub open_file { #{{{2
         $app->current_dir($file_dialog->GetDirectory);
     }
 
-    return unless my $key = Wx::GetPasswordFromUser("Enter key", "Key Entry", "", $frame);
+    my $key = $option->{key};
+    unless ($key) { 
+        return unless $key = Wx::GetPasswordFromUser("Enter key", "Key Entry", "", $frame);
+    }
     $app->cipher( Crypt::CBC->new( -key => $key, -cipher => 'Blowfish') );
 
     $log->debug("open from $filename");
@@ -424,7 +405,7 @@ sub open_file { #{{{2
     # remove and unpack the yaml chunk
     my $yaml_length = unpack('S', substr($file_text, 0, 2, ''));
     my $yaml = substr($file_text, 0, $yaml_length, '');
-    $log->info("yaml length $yaml_length : $yaml");
+#    $log->info("yaml length $yaml_length : $yaml");
 
     my $edit_text = $app->cipher->decrypt($file_text);
     my $edit_checksum = sha1_hex($edit_text);
@@ -441,22 +422,16 @@ EOT
 
     my $property = Load($yaml) ;
 
+    $app->control->{text_txt}->SetValue( $edit_text );
+
     # apply the properties
-    $app->dialogue_line( $property->{dialogue_line} );
+#    $app->dialogue_line( $property->{dialogue_line} );
+    $app->dialogue_transitions( $property->{dialogue_transitions} );
     $app->change_font_size(0, $property->{font_size});
     $frame->SetSize($property->{width}, $property->{height});
     $frame->Move([ $property->{left}, $property->{top} ]);
 
-    # the RichText control will drop a single trailing linefeed, if one or more LFs end the string.
-    # Stop this happening so we can compare file and edit checksums without displaying the content.
-    if ($edit_text =~ /\n\z/) {
-        $log->info("preemptively restore LF");
-        $edit_text .= "\n";
-    }
-
-    $app->control->{text_txt}->SetValue( $edit_text );
-
-    $app->refresh_dialogue_styles;
+#    $app->refresh_dialogue_styles;
 
     # set once open is successful
     $app->saved_checksum($edit_checksum);
@@ -485,105 +460,134 @@ sub change_font_size { #{{{2
 ################################################################################
 sub toggle_dialogue_style { #{{{2
     my ($self, $line_nbr) = @_;
-#    my @from = caller(1);
-#    $log->info("from @from");
 
     my $text_txt = $self->control->{text_txt};
 
-    my $number_lines = $text_txt->GetNumberOfLines;
-#    $log->info("number_lines $number_lines");
-
     my ($start, $end, $switch_on);
 
-    unless (defined $line_nbr) {
-        my $cursor_pos = $text_txt->GetInsertionPoint;
-        (undef, $line_nbr) = $text_txt->PositionToXY($cursor_pos);
-        $log->info("current pos = $cursor_pos, line $line_nbr");
-    }
+    my $cursor_pos = $text_txt->GetInsertionPoint;
+    my $text = $text_txt->GetValue;
+    my $bg_color = $text_txt->GetStyle($cursor_pos)->GetBackgroundColour;
+    $switch_on = $bg_color->Red != 0xdd;
 
-    if (defined $line_nbr) {
+    $start = $cursor_pos;
+    $end = $cursor_pos;
+    my @chars = unpack('C*', $text);
 
-        my $length = $text_txt->GetLineLength($line_nbr);
-        $start = $text_txt->XYToPosition(0,$line_nbr);
-        $end = $text_txt->XYToPosition($length,$line_nbr);
-        $log->info("length, start, end : $length, $start, $end");
-        $switch_on = ! exists $self->dialogue_line->{ $line_nbr };
-    }
-    else {
-        my $cursor_pos = $text_txt->GetInsertionPoint;
-        my $text = $text_txt->GetValue;
-        $switch_on = $text_txt->GetStyle($cursor_pos)->GetLeftIndent == 0;
-
-        $start = $cursor_pos;
-        $end = $cursor_pos;
-        my @chars = unpack('C*', $text);
-
-        # go back to previous LF
-        while ($start >= 0 && $chars[$start] != 10) {
-            $start--;
-        }
-        $start++;
-
-        # go forward to next LF
-        while ($end <= $#chars && $chars[$end] != 10) {
-            $end++;
+    # go back to previous LF, but if we're on an empty line, just quit
+    if ($chars[$start] == 10) {
+        if ($start == 0 || $chars[$start-1] == 10) {
+            return;
         }
 
-        $log->info("cursor_pos $cursor_pos, start $start, end $end");
-        $line_nbr = "${start}_${end}";
+        # we're starting at the end of a non-empty line; move start 1 char backward so we
+        # don't immediately terminate
+        $start--;
+    }
+    while ($start >= 0 && $chars[$start] != 10) {
+        $start--;
+    }
+    $start++;
+
+    # go forward to next LF
+    while ($end <= $#chars && $chars[$end] != 10) {
+        $end++;
     }
 
     my $style;
+    my $dialogue_transitions = $self->dialogue_transitions;
+
+    # find the highest transition less than or equal to the current position;
+    # we need this whether we're setting or clearing.
+    # Do this manually rather than via List::MoreUtils because we know the list is sorted
+    # and can stop earlier.
+    my $active_transition_index = -1;
+    for my $i (0 .. $#{ $dialogue_transitions }) {
+
+        # we match on the start but before the end, otherwise we match the end of the
+        # currrent transition when we're at the end of a styled line.
+        if (($i % 2 == 0 && $dialogue_transitions->[$i] <= $cursor_pos) 
+            || ($i % 2 && $dialogue_transitions->[$i] < $cursor_pos))
+        {
+            $active_transition_index = $i;
+        }
+        else {
+            last;
+        }
+    }
+
     if ($switch_on) {
         $style = $self->dialogue_style;
-        $self->dialogue_line->{ $line_nbr } = 1;
+#        $self->dialogue_line->{ $line_nbr } = 1;
+
+        # the last transition (if any) should be a switch off, hence an odd index
+        if ($active_transition_index >= 0 && ($active_transition_index % 2 == 0)) {
+            $log->info("switch on inside an existing transition: $cursor_pos, $active_transition_index, " . Dumper($dialogue_transitions));
+            return;
+        }
+
+        # add after previous transition or at start if none
+        $active_transition_index++;
+        splice @{ $dialogue_transitions }, $active_transition_index, 0, $start, $end;
     }
     else {
-        $log->debug("clear style");
         $style = $self->default_style;
-        delete $self->dialogue_line->{ $line_nbr };
+#        delete $self->dialogue_line->{ $line_nbr };
+
+        # the last transition should be a switch on, hence an even index
+        if ($active_transition_index < 0 || $active_transition_index % 2) {
+            $log->info("switch off outside an existing transition: $cursor_pos, $active_transition_index, " . Dumper($dialogue_transitions));
+            return;
+        }
+
+        # remove this transition
+        splice @{ $dialogue_transitions }, $active_transition_index, 2;
+
     }
+
+#    $log->info("dialogue_transitions now " . Dumper($dialogue_transitions));
+    $self->dialogue_transitions($dialogue_transitions);
     $text_txt->SetStyle($start, $end, $style);
 
     return;
 }
 
 ################################################################################
-sub shift_dialogue_styles { #{{{2
-    my ($self, $increment) = @_;
-
-    my $text_txt = $self->control->{text_txt};
-
-#    my $left_indent;
-#    my $switches = 0;
-#    for my $position (0 .. $text_txt->GetLastPosition) {
-#        if (my $style = $text_txt->GetStyle($position)) {
-#            # $log->info("found style at $position");
-#            if (! defined $left_indent || $left_indent != $style->GetLeftIndent) {
-#                $left_indent = $style->GetLeftIndent;
-#                $switches++;
-#            }
-#        }
+#sub shift_dialogue_styles { #{{{2
+#    my ($self, $increment) = @_;
+#
+#    my $text_txt = $self->control->{text_txt};
+#
+##    my $left_indent;
+##    my $switches = 0;
+##    for my $position (0 .. $text_txt->GetLastPosition) {
+##        if (my $style = $text_txt->GetStyle($position)) {
+##            # $log->info("found style at $position");
+##            if (! defined $left_indent || $left_indent != $style->GetLeftIndent) {
+##                $left_indent = $style->GetLeftIndent;
+##                $switches++;
+##            }
+##        }
+##    }
+##
+##    $log->info("found $switches switches");
+##    return;
+#
+#    my $pos = $text_txt->GetInsertionPoint;
+#    (undef, my $current_line) = $text_txt->PositionToXY($pos);
+#    $log->debug("shift_dialogue_styles: current_line $current_line, increment $increment");
+#
+#    my @dialogue_lines = sort { $increment > 0 ? $b <=> $a : $a <=> $b } keys %{ $self->dialogue_line };
+#
+#    for my $line_nbr (@dialogue_lines) {
+#        next unless $line_nbr >= $current_line;
+#        $log->debug("shift dialogue style from $line_nbr to $line_nbr + $increment");
+#        $self->toggle_dialogue_style($line_nbr);
+#        $self->toggle_dialogue_style($line_nbr + $increment);
 #    }
 #
-#    $log->info("found $switches switches");
 #    return;
-
-    my $pos = $text_txt->GetInsertionPoint;
-    (undef, my $current_line) = $text_txt->PositionToXY($pos);
-    $log->debug("shift_dialogue_styles: current_line $current_line, increment $increment");
-
-    my @dialogue_lines = sort { $increment > 0 ? $b <=> $a : $a <=> $b } keys %{ $self->dialogue_line };
-
-    for my $line_nbr (@dialogue_lines) {
-        next unless $line_nbr >= $current_line;
-        $log->debug("shift dialogue style from $line_nbr to $line_nbr + $increment");
-        $self->toggle_dialogue_style($line_nbr);
-        $self->toggle_dialogue_style($line_nbr + $increment);
-    }
-
-    return;
-}
+#}
 
 ################################################################################
 # Note that this won't take off any styles, so it only works after a load or a font
@@ -591,18 +595,46 @@ sub shift_dialogue_styles { #{{{2
 sub refresh_dialogue_styles { #{{{2
     my ($self) = @_;
 
+    my @caller = caller(1);
 #    return;
+#    $log->info("refresh_dialogue_styles $caller[1] $caller[3] $caller[2]");
 
     my $text_txt = $self->control->{text_txt};
+    my $last_position = $text_txt->GetLastPosition;
+    $text_txt->SetStyle(0, $last_position, $self->default_style);
+    my $full_text = $text_txt->GetValue;
 
-    for my $line_nbr (keys %{ $self->dialogue_line }) {
-        my $length = $text_txt->GetLineLength($line_nbr);
-        my $start = $text_txt->XYToPosition(0,$line_nbr);
-        my $end = $text_txt->XYToPosition($length,$line_nbr);
-        next unless $start >= 0;
-        $log->info("line_nbr $line_nbr : set dialog from $start to $end");
-        $text_txt->SetStyle($start, $end, $self->dialogue_style);
+    my $transitions = $self->dialogue_transitions;
+    my $count = $#{ $transitions } + 1;
+    if ($count % 2) {
+        $log->die("transitions has odd number of chars : " . Dumper($transitions));
     }
+    my $i = 0;
+    my @valid_transitions = ();
+    while ($i < $count) {
+        my $start = $transitions->[$i];
+        my $end = $transitions->[$i + 1];
+        $i += 2;
+#        if ($i < 10) {
+            my $start_text = substr $full_text, $start-2, 5;
+            my $end_text = substr $full_text, $end-2, 5;
+            my @start_chars = unpack('C*', $start_text);
+            my @end_chars = unpack('C*', $end_text);
+#            $log->info("offset $i, $start to $end, chars = @start_chars to @end_chars");
+            if (@start_chars == 5 && @end_chars == 5) {
+                if ($start_chars[1] != 10 || $end_chars[2] != 10) {
+                    $log->info("skip bad transition from '$start_text' to '$end_text'");
+                    next;
+                }
+            }
+#        }
+
+        $log->debug("set dialog from $start to $end");
+        $text_txt->SetStyle($start, $end, $self->dialogue_style);
+        push @valid_transitions, $start, $end;
+    }
+
+    $self->dialogue_transitions(\@valid_transitions);
 
     return;
 }
@@ -648,13 +680,37 @@ EOT
 
     my $table_end = "</b></td> </tr> </tbody> </table>";
 
-    my $number_lines = $text_txt->GetNumberOfLines;
-    for my $line_nbr (0 .. $number_lines - 1) {
-        my $line = $text_txt->GetLineText($line_nbr);
-        $html .= $app->dialogue_line->{$line_nbr}
+    my @lines = split(/\n/, $text_txt->GetValue);
+    my $offset = 0;
+    my $dialogue_transitions = $app->dialogue_transitions;
+    my $next_dialog_section = 0;
+    my $is_dialog = 0;
+
+    for my $line (@lines) {
+
+        # watch for an offset matching the next section and change state
+
+        if ($is_dialog && defined $dialogue_transitions->[$next_dialog_section + 1] && $offset > $dialogue_transitions->[$next_dialog_section + 1]) {
+#            $log->info("dialog off at offset $offset");
+            $is_dialog = 0;
+            $next_dialog_section += 2;
+        }
+
+        if (! $is_dialog && defined $dialogue_transitions->[$next_dialog_section] && $offset == $dialogue_transitions->[$next_dialog_section]) {
+#            $log->info("dialog on at offset $offset");
+            $is_dialog = 1;
+        }
+
+#        $log->info("offset $offset $line, is_dialog: $is_dialog");
+        $html .= $is_dialog
             ? $table_start . $line . $table_end . "\n"
             : $line . "<br>\n";
+
+        # add 1 for LF
+        $offset += length($line) + 1;
     }
+
+#    $log->info("html: $html");
 
     $html .= "</body></html>\n";
 
@@ -776,7 +832,7 @@ sub assign_event_handler { #{{{2
 
 # mainline {{{1
 
-unless(caller){
+unless(caller) {
 
     # list of options
     my @options = qw(
@@ -784,6 +840,7 @@ unless(caller){
         usage
         debug
         file=s
+        key=s
         quiet
         geometry=s
         script=s
