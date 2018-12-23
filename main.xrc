@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resource version="2.3.0.1" xmlns="http://www.wxwidgets.org/wxxrc">
     <object class="wxFrame" name="main">
-        <style>wxCAPTION|wxRESIZE_BORDER|wxSYSTEM_MENU|wxCLOSE_BOX</style>
+        <style>wxCAPTION|wxRESIZE_BORDER|wxSYSTEM_MENU|wxMINIMIZE_BOX|wxCLOSE_BOX</style>
         <size>550,300</size>
         <title>cedit</title>
         <centered>1</centered>
@@ -54,8 +54,24 @@
                 <bitmap>image/replace.png</bitmap>
             </object>
         </object>
-        <object class="wxTextCtrl" name="text_txt">
-            <style>wxTE_MULTILINE|wxTE_RICH|wxTE_RICH2</style>
+        <object class="wxBoxSizer">
+            <orient>wxHORIZONTAL</orient>
+            <object class="sizeritem">
+                <flag>wxGROW</flag>
+                <border>5</border>
+                <option>1</option>
+                <object class="wxTextCtrl" name="text_txt">
+                    <style>wxTE_MULTILINE|wxTE_PROCESS_ENTER|wxTE_RICH|wxTE_RICH2|wxWANTS_CHARS</style>
+                </object>
+            </object>
+            <object class="sizeritem">
+                <flag>wxGROW</flag>
+                <border>5</border>
+                <object class="wxListBox" name="autoword_lbx">
+                    <size>100,-1</size>
+                    <style>wxLB_SINGLE</style>
+                </object>
+            </object>
         </object>
     </object>
 </resource>
